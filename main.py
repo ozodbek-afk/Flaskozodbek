@@ -1,5 +1,6 @@
 import json
 import os
+import asyncio
 from telegram import (
     Update,
     KeyboardButton,
@@ -147,10 +148,16 @@ def index():
 
 @app.route('/setwebhook')
 def set_webhook():
-    bot = Bot(token=BOT_TOKEN)
-    webhook_url = f'https://flaskozodbek.onrender.com/{BOT_TOKEN}'
-    success = bot.set_webhook(url=webhook_url)
-    return "Webhook o‘rnatildi!" if success else "Webhook o‘rnabolmadi"
+    url = f'https://flaskozodbek.onrender.com/{TOKEN}'
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    success = loop.run_until_complete(bot.set_webhook(url=url))
+    loop.close()
+    
+    if success:
+        return 'Webhook muvaffaqiyatli o‘rnatildi!'
+    else:
+        return 'Webhook o‘rnata olmadik.'
 
 if __name__ == '__main__':
     import asyncio
