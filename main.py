@@ -1,26 +1,28 @@
 import json
 import os
-import asyncio
+from flask import Flask, request
 from telegram import (
     Update,
     KeyboardButton,
     ReplyKeyboardMarkup,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    Bot
 )
 from telegram.ext import (
     Application,
+    ApplicationBuilder,
     CommandHandler,
     MessageHandler,
     CallbackQueryHandler,
     ContextTypes,
-    filters,
+    filters
 )
-from flask import Flask, request
 
 from admin import admin_panel, broadcast_start, handle_broadcast
 from config import BOT_TOKEN, ADMIN_IDS
 
+# === Foydalanuvchilarni saqlash funksiyalari ===
 USERS_FILE = "users.json"
 
 def load_users():
@@ -36,6 +38,7 @@ def save_user(user_id, name, phone):
     with open(USERS_FILE, "w") as f:
         json.dump(users, f, indent=2)
 
+# === /start komandasi ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     users = load_users()
@@ -53,6 +56,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=keyboard
         )
 
+# === Kontakt qabul qilish ===
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     contact = update.message.contact.phone_number
@@ -63,6 +67,7 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=await get_main_menu()
     )
 
+# === Asosiy menyu ===
 async def get_main_menu():
     keyboard = [
         [InlineKeyboardButton("🎥 Video qo‘llanma", callback_data="video")],
@@ -72,13 +77,14 @@ async def get_main_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
+# === Callback tugmalarni boshqarish ===
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     if query.data == "video":
         try:
-            with open("/home/ozodbekpanjiyev/tbc/VN20250430_041020.mp4", "rb") as video_file:
+            with open("VN20250430_041020.mp4", "rb") as video_file:
                 await query.message.reply_video(video=video_file, caption="Videodagi promokod eski, Yangi promokod: SCE438E8B1")
         except FileNotFoundError:
             await query.message.reply_text("❌ Video fayli topilmadi.")
@@ -87,9 +93,9 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "docs":
         await query.message.reply_text("📄 Quyidagi hujjatlarni yuklab oling:")
         try:
-            with open("/home/ozodbekpanjiyev/tbc/hujjat1.pdf", "rb") as doc1, \
-                 open("/home/ozodbekpanjiyev/tbc/hujjat2.pdf", "rb") as doc2, \
-                 open("/home/ozodbekpanjiyev/tbc/hujjat3.pdf", "rb") as doc3:
+            with open("hujjat1.pdf", "rb") as doc1, \
+                 open("hujjat2.pdf", "rb") as doc2, \
+                 open("hujjat3.pdf", "rb") as doc3:
                 await query.message.reply_document(document=doc1)
                 await query.message.reply_document(document=doc2)
                 await query.message.reply_document(document=doc3)
@@ -119,10 +125,7 @@ async def send_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.callback_query.edit_message_text("⬇️ Quyidagi menyudan tanlang:", reply_markup=reply_markup)
 
-# --- FLASK WEBHOOK QISMI ---
-from telegram import Bot
-from telegram.ext import ApplicationBuilder
-
+# === Flask ilova va webhook ===
 app = Flask(__name__)
 telegram_app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -137,9 +140,9 @@ for admin_id in ADMIN_IDS:
     telegram_app.add_handler(MessageHandler(filters.TEXT & filters.User(admin_id), handle_broadcast))
 
 @app.route(f'/{BOT_TOKEN}', methods=["POST"])
-async def webhook():
+def webhook():
     update = Update.de_json(request.get_json(force=True), Bot(BOT_TOKEN))
-    await telegram_app.process_update(update)
+    telegram_app.update_queue.put_nowait(update)
     return "OK"
 
 @app.route('/')
@@ -148,18 +151,14 @@ def index():
 
 @app.route('/setwebhook')
 def set_webhook():
-    url = f'https://flaskozodbek.onrender.com/{TOKEN}'
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    success = loop.run_until_complete(bot.set_webhook(url=url))
-    loop.close()
-    
+    url = f'https://flaskozodbek.onrender.com/{BOT_TOKEN}'
+    bot = Bot(BOT_TOKEN)
+    success = bot.set_webhook(url=url)
     if success:
         return 'Webhook muvaffaqiyatli o‘rnatildi!'
     else:
         return 'Webhook o‘rnata olmadik.'
 
 if __name__ == '__main__':
-    import asyncio
     port = int(os.environ.get('PORT', 5000))
-    asyncio.run(app.run_task(host='0.0.0.0', port=port))
+    app.run(host='0.0.0.0', port=port)
