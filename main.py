@@ -35,7 +35,7 @@ def index():
 # Webhook o‘rnatish
 @app.route('/setwebhook')
 def set_webhook():
-    url = f'https://YOUR_RENDER_URL.onrender.com/{TOKEN}'  # Render'dagi URL
+    url = f'https://flaskozodbek.onrender.com/{TOKEN}'  # Render'dagi URL
     success = bot.set_webhook(url=url)
     if success:
         return 'Webhook muvaffaqiyatli o‘rnatildi!'
