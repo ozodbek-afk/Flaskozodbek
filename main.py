@@ -1,37 +1,47 @@
+import logging
 from flask import Flask, request
-import telebot
+from telegram import Update, Bot
+from telegram.ext import Dispatcher, CommandHandler
 import os
 
-TOKEN = '8101801994:AAHiwSIALDSkD3-6UWfJKjJCWGpI4HT0iDQ'  # Telegram bot token
-bot = telebot.TeleBot(TOKEN)
-
+TOKEN = '8101801994:AAHiwSIALDSkD3-6UWfJKjJCWGpI4HT0iDQ'  # Tokenni shu yerga yozing
+bot = Bot(token=TOKEN)
 app = Flask(__name__)
 
-# GET so‘rovi orqali serverni tekshirish (Bu URL'ga kirganingizda server ishlayapti deb javob beradi)
-@app.route('/', methods=['GET'])
-def index():
-    return 'Bot ishlayapdi', 200
+# Dispatcher — handlerlarni boshqaradi
+dispatcher = Dispatcher(bot=bot, update_queue=None, use_context=True)
 
-# Webhook orqali Telegram xabarlarini qabul qilish (POST so‘rovi)
-@app.route('/' + TOKEN, methods=['POST'])
+# Log yozish (muammo bo‘lsa oson aniqlash uchun)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+# /start komandasi
+def start(update: Update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Webhook python-telegram-bot orqali ishlayapti!")
+
+dispatcher.add_handler(CommandHandler("start", start))
+
+# Webhook endpoint
+@app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
-    update = telebot.types.Update.de_json(request.data.decode('utf-8'))  # Telegram'dan kelgan xabarni qabul qilish
-    bot.process_new_updates([update])  # Yangi xabarni bot orqali qayta ishlash
-    return 'OK', 200
+    update = Update.de_json(request.get_json(force=True), bot)
+    dispatcher.process_update(update)
+    return 'OK'
 
-# /start komandasi uchun handler
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.send_message(message.chat.id, "Webhook Render orqali ishlayapti!")  # Botdan xabar yuborish
+# Oddiy test endpoint
+@app.route('/')
+def index():
+    return 'Bot ishlayapti!'
 
-# Webhookni o‘rnatish uchun GET so‘rovi
-@app.route('/setwebhook', methods=['GET'])
+# Webhook o‘rnatish
+@app.route('/setwebhook')
 def set_webhook():
-    webhook_url = f'https://Flaskozodbek.onrender.com/{TOKEN}'  # Render serveringizdagi URL
-    bot.remove_webhook()  # Eski webhookni olib tashlash
-    bot.set_webhook(url=webhook_url)  # Yangi webhookni o‘rnatish
-    return 'Webhook o‘rnatildi!', 200  # Tasdiqlash xabari
+    url = f'https://YOUR_RENDER_URL.onrender.com/{TOKEN}'  # Render'dagi URL
+    success = bot.set_webhook(url=url)
+    if success:
+        return 'Webhook muvaffaqiyatli o‘rnatildi!'
+    else:
+        return 'Webhook o‘rnata olmadik.'
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # Portni o‘rnatish
-    app.run(host='0.0.0.0', port=port)  # Flask ilovasini ishga tushirish
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
