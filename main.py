@@ -2,7 +2,7 @@ from flask import Flask, request
 import telebot
 import os
 
-TOKEN = '7563506713:AAFeXPQApqWNdwZCtkr83yIR9aCF0G2M-Ls'  # Telegram bot token
+TOKEN = '8101801994:AAHiwSIALDSkD3-6UWfJKjJCWGpI4HT0iDQ'  # Telegram bot token
 bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
